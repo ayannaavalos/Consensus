@@ -28,8 +28,9 @@ public class Client {
     boolean test; // Boolean for test vs normal output
     static String use;
     DefiClient defiClient;
-
     HCClient hcClient;
+    zkClient proposer;
+
     static boolean isPatient;
 
     /**
@@ -125,6 +126,10 @@ public class Client {
             if (isPatient) {
                 hcClient.setPatientClient(true);
             }
+        } else if (use.equals("ZK")) {
+            defiClient = null;
+            hcClient = null;
+            proposer = new zkClient(updateLock, reader, myAddress, fullNodes);
         }
 
         System.out.println("Wallet bound to " + myAddress);
@@ -186,6 +191,7 @@ public class Client {
                 /* Submit Transaction */
                 case("t"):
                     if(use.equals("Defi")) defiClient.submitTransaction();
+                    if(use.equals("ZK")) proposer.submitTransaction();
                     break;
 
                 /* Print accounts (or something similar depends on use) */
@@ -199,6 +205,7 @@ public class Client {
                     if(use.equals("Defi")) defiClient.printUsage();
                     if(use.equals("HC") && !isPatient) hcClient.printUsage();
                     if(use.equals("HC") && isPatient) hcClient.printPatientUsage();
+                    if(use.equals("ZK")) proposer.printUsage();
                     break;
 
                 case("n"):

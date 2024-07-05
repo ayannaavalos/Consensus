@@ -14,6 +14,8 @@ import java.util.*;
 import blockchain.*;
 import blockchain.usecases.defi.*;
 import blockchain.usecases.healthcare.*;
+import blockchain.usecases.zk.zkBlock;
+import blockchain.usecases.zk.zkTransactionValidator;
 import communication.*;
 import communication.messaging.*;
 import utils.*;
@@ -84,8 +86,8 @@ public class Node  {
         }else if(configValues.getUse().equals("HC")){
             // Room to enable another configValues.getUse() case 
             tv = new HCTransactionValidator();
-        }else{
-            tv = new DefiTransactionValidator();
+        }else if(configValues.getUse().equals("ZK")){
+            tv = new zkTransactionValidator();
         }
 
         /* Public-Private (DSA) Keys*/
@@ -125,6 +127,8 @@ public class Node  {
             addBlock(new DefiBlock(new HashMap<String, Transaction>(), "000000", 0));
         }else if(configValues.getUse().equals("HC")){
             addBlock(new HCBlock(new HashMap<String, Transaction>(), "000000", 0));
+        }else if(configValues.getUse().equals("ZK")){
+            addBlock(new zkBlock(new HashMap<String, Transaction>(), "000000", 0));
         }
     }
 
@@ -199,9 +203,11 @@ public class Node  {
                 validatorObjects[0] = transaction;
                 validatorObjects[1] = mempool;
 
-            }else{
-                //tv = new HCTransactionValidator(); // To be changed to another configValues.getUse() case in the future
+            }else if(configValues.getUse().equals("HC")){
                 validatorObjects[0] = transaction;
+
+            }else if(configValues.getUse().equals("ZK")){
+                // Add any objects to the list if needed to validate tx
             }
 
             if(!tv.validate(validatorObjects)){
@@ -434,7 +440,10 @@ public class Node  {
                 }else if(configValues.getUse().equals("HC")) {
                     // Validator objects will change according to another configValues.getUse() case
                     validatorObjects[0] = transaction;
+                }else if(configValues.getUse().equals("ZK")){
+
                 }
+
                 tv.validate(validatorObjects);
                 blockTransactions.put(key, transaction);
             }
@@ -444,13 +453,18 @@ public class Node  {
                     quorumBlock = new DefiBlock(blockTransactions,
                         getBlockHash(blockchain.getLast(), 0),
                                 blockchain.size());
-                }else{
+                }else if(configValues.getUse().equals("HC")){
 
                     // Room to enable another configValues.getUse() case 
                     quorumBlock = new HCBlock(blockTransactions,
                         getBlockHash(blockchain.getLast(), 0),
                                 blockchain.size());
+                }else if(configValues.getUse().equals("ZK")){
+                    quorumBlock = new zkBlock(blockTransactions,
+                    getBlockHash(blockchain.getLast(), 0),
+                            blockchain.size());
                 }
+
 
             } catch (NoSuchAlgorithmException e) {
                 throw new RuntimeException(e);
@@ -465,6 +479,10 @@ public class Node  {
      * Invoked after constructing a block.
      */
     public void sendQuorumSignature(){
+
+        // zk Proof probably does something here (MINER)
+        ////////////////////////////////////////////////////
+
         String blockHash;
         byte[] sig;
 
@@ -476,6 +494,9 @@ public class Node  {
         sendOneWayMessageQuorum(new Message(Message.Request.RECEIVE_SIGNATURE, blockSignature));
 
         if(configValues.getDebugLevel() == 1) {System.out.println("Node " + myAddress.getPort() + ": sendSigOfBlockHash invoked for hash: " + blockHash.substring(0, 4));}
+
+
+        ///////////////////////////////////////////////////
     }
 
     /**
@@ -487,6 +508,12 @@ public class Node  {
     public void receiveQuorumSignature(BlockSignature signature){
         stateManager.waitForState(3);
         synchronized (lockManager.getLock("sigRoundsLock")){
+
+
+            // zk Proof probably does something here (MINER)
+            ////////////////////////////////////////////////////
+
+
             if(configValues.getDebugLevel() == 1) { System.out.println("Node " + myAddress.getPort() + ": 1st part receiveQuorumSignature invoked. state: " + state);}
 
             ArrayList<Address> quorum = deriveQuorum(blockchain.getLast(), 0, configValues, globalPeers);
@@ -741,9 +768,17 @@ public class Node  {
                 } catch (NoSuchAlgorithmException e) {
                     throw new RuntimeException(e);
                 }
-            }else{
+            }else if(configValues.getUse().equals("HC")){
                 try {
                     newBlock = new HCBlock(blockTransactions,
+                            getBlockHash(blockchain.getLast(), 0),
+                            blockchain.size());
+                } catch (NoSuchAlgorithmException e) {
+                    throw new RuntimeException(e);
+                }
+            }else{
+                try {
+                    newBlock = new zkBlock(blockTransactions,
                             getBlockHash(blockchain.getLast(), 0),
                             blockchain.size());
                 } catch (NoSuchAlgorithmException e) {
@@ -780,9 +815,12 @@ public class Node  {
         if(configValues.getUse().equals("Defi")){
             DefiTransactionValidator dtv = (DefiTransactionValidator) tv;
             dtv.alertWallet(txMap, mt, myAddress);
-        } else {
+        } else if(configValues.getUse().equals("HC")){
             HCTransactionValidator hctv = (HCTransactionValidator) tv;
             hctv.alertWallet(txMap, mt, myAddress);
+        } else if(configValues.getUse().equals("ZK")){
+            zkTransactionValidator zktv = (zkTransactionValidator) tv;
+            // alertWallet(txMap, mt, myAddress); 
         }
 
 
